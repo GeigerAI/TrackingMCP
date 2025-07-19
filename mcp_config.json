@@ -1,0 +1,9 @@
+{
+  "mcpServers": {
+    "tracking-rate-mcp": {
+      "command": "python",
+      "args": ["-m", "src"],
+      "cwd": "/home/geiger/TrackingRateMCP"
+    }
+  }
+}

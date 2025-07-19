@@ -1,0 +1,505 @@
+openapi: 3.0.0
+info:
+  title: DHL eCommerce Tracking API
+  version: 4.0.0
+  description: | 
+   This API is used to check the latest tracking status of any domestic or international package.
+   
+    `M- Mandatory O- Optional C- Conditional N- Not Applicable (Used in Request and Response Data schema)`
+
+
+servers:
+  - url: https://api-sandbox.dhlecs.com
+    description: Sandbox Environment
+  - url: https://api.dhlecs.com
+    description: Production Environment
+paths:
+  /tracking/v4/package/open:
+    get:
+      summary: Track Single or Multiple Packages
+      description: |
+        Retrieve tracking information for one or more packages using their package IDs, DHL package IDs, tracking IDs, or manifest IDs. 
+        You must provide at least one or more of the parameters. You can also provide multiple IDs separated by commas.
+        
+        `Track using Pickup and Dates`
+
+        Use this request to track package(s) using a combination of query parameters.
+        Here's the parameter combinations supported in the request:
+        
+        `pickup`, `startDate`, `endDate`
+        
+        `pickup`, `startDate`, `endDate`, `city`
+        
+        `pickup`, `startDate`, `endDate`, `state`
+        
+        `pickup`, `startDate`, `endDate`, `postalCode`
+        
+        `pickup`, `startDate`, `endDate`, `country`
+        
+        `pickup`, `startDate`, `endDate`, `orderedProductId`
+        
+        `pickup`, `startDate`, `endDate` and any combination of (`city`, `state`, `postalCode`, `country`, `orderedProductId`)
+        
+        If pickup is provided, either startDate and endDate should be provided OR one of the package identifiers needs to be provided. endDate should be within 7 days from startDate. Format should be YYYY-MM-DD. Timezone is in ET.
+        
+        `M- Mandatory O- Optional C- Conditional N- Not Applicable`
+      parameters: 
+        - name: User-Agent
+          in: header
+          description: "Information about the client application making the request."
+          schema:
+            type: string
+            default: "eCOMv4 DHLeC Developer portal"  
+
+        - name: packageId
+          in: query
+          required: false  
+          description: The unique identifiers for the packages to be tracked, separated by commas. Use this if you have the package IDs. (O)
+          schema:
+            type: string
+            minLength: 1
+            maxLength: 30
+            example: "GM60511234500000001"
+        - name: dhlPackageId
+          in: query
+          required: false  
+          description: The unique DHL package identifiers for the packages to be tracked, separated by commas. Use this if you have the DHL package IDs. (O)
+          schema:
+            type: string
+            minLength: 1
+            maxLength: 30
+            example: "3387191106122423"
+        - name: manifestId
+          in: query
+          required: false  
+          description: Manifest (BOL) number under which the package was manifested. (O)
+          schema:
+            type: string
+            minLength: 1
+            maxLength: 20
+            example: 40931443
+        - name: trackingId
+          in: query
+          description: The tracking IDs for the packages to be tracked, separated by commas. Use this if you have the tracking IDs. (O)
+          schema:
+            type: string
+            minLength: 1
+            maxLength: 30
+            example: "420300249374869903500011805718"
+        - name: pickup
+          in: query
+          required: false  
+          description: DHL eCommerce pickup account number. (O)
+          schema:
+            type: string
+            minLength: 4
+            maxLength: 10
+            example: "5234567"
+        - name: startDate
+          in: query
+          required: false  
+          description: Date when package first received in a DHLeC distribution center, in YYYY-MM-DD format. (O)
+          schema:
+            type: string
+            minLength: 1
+            maxLength: 10
+            example: "2022-01-01"
+        - name: endDate
+          in: query
+          required: false  
+          description: Ending receive date, in YYYY-MM-DD format (O)
+          schema:
+            type: string
+            minLength: 1
+            maxLength: 10
+            example: "2022-01-31"
+        - name: city
+          in: query
+          required: false  
+          description: Recipient's city. (O)
+          schema:
+            type: string
+            minLength: 1
+            maxLength: 30
+            example: "Norcross"
+        - name: state
+          in: query
+          required: false  
+          description: Recipient's state (O)
+          schema:
+            type: string
+            minLength: 0
+            maxLength: 50
+            example: "GA"
+        - name: postalCode
+          in: query
+          required: false  
+          description: The postal code of the recipient. (O)
+          schema:
+            type: string
+            minLength: 0
+            maxLength: 20
+            example: "30024"
+        - name: country
+          in: query
+          required: false  
+          description: Recipient's country. (O)
+          schema:
+            type: string
+            example: "US"
+        - name: orderedProductId
+          in: query
+          required: false  
+          description: DHL eCommerce product ID (defaults to billedProductId if it is different from orderedProductId).(O) 
+          schema:
+            type: string
+            example: "GND"
+        - name: limit
+          in: query
+          required: false  # Optional parameter
+          schema:
+           type: integer
+           example: 10
+          description: Number of results to return per request (max = 10). (O)
+        
+        - name: offset
+          in: query
+          required: false  # Optional parameter
+          schema:
+            type: integer
+            example: 0
+          description: Number of records to skip in the next request. (O)
+      responses:
+        '200':
+          description: Successful response containing tracking information for single or multiple packages.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  total:
+                    type: integer
+                    example: 14
+                    minimum: 1
+                    maximum: 999999
+                    description: Total number of records in the result set. (M)
+                  limit:
+                    type: integer
+                    example: 10
+                    minimum: 1
+                    maximum: 10
+                    description: Maximum number of records returned in the request (max = 10). (M)
+                  offset:
+                    type: integer
+                    example: 0
+                    minimum: 0
+                    maximum: 999999
+                    description: Number of records skipped in the result set. (M)
+                  timestamp:
+                    type: string
+                    format: date-time
+                    example: "2020-07-28T18:00:00.087Z"
+                    description: Timestamp of response; ISO-8601 date/time format. (M)
+                  links:
+                    type: object
+                    description: Links to other pages in the tracking request. (O)
+                    properties:
+                      previous:
+                        type: string
+                        minLength: 1
+                        maxLength: 50
+                        example: "/tracking/v4/package/open?packageId=123456789&limit=10&offset=10"
+                        description: HTTPS link to the previous set of records (paging). (O)
+                      next:
+                        type: string
+                        minLength: 1
+                        maxLength: 50
+                        example: "/tracking/v4/package/open?packageId=123456789&limit=10&offset=0"
+                        description: HTTPS link to the next set of records (paging). (O)
+                  packages:
+                    type: array
+                    description: An array of packages. (O)
+                    items:
+                      type: object
+                      properties:
+                        recipient:
+                          type: object
+                          description: The recipient's address block. (M)
+                          properties:
+                            city:
+                              type: string
+                              example: "Newark"
+                              minLength: 1
+                              maxLength: 30
+                              description: Recipient city. (O)
+                            state:
+                              type: string
+                              example: "NJ"
+                              minLength: 0
+                              maxLength: 50
+                              description: Recipient state. (O)
+                            postalCode:
+                              type: string
+                              example: "7114"
+                              minLength: 0
+                              maxLength: 20
+                              description: Recipient postal code. (O)
+                            country:
+                              type: string
+                              example: "US"
+                              description: Recipient country. (O)
+                            signedForName:
+                              type: string
+                              example: "Jess"
+                              minLength: 0
+                              maxLength: 20
+                              description: Signature for package. (O)
+                        events:
+                          type: array
+                          description: An array of tracking events. (O)
+                          items:
+                            type: object
+                            properties:
+                              location:
+                                type: string
+                                example: "Hebron, KY, US"
+                                minLength: 0
+                                maxLength: 100
+                                description: Event location. (O)
+                              date:
+                                type: string
+                                example: "2019-10-24"
+                                minLength: 1
+                                maxLength: 10
+                                description: Event date in YYYY-MM-DD format. (O)
+                              time:
+                                type: string
+                                example: "15:20:24"
+                                minLength: 1
+                                maxLength: 8
+                                description: Event time in HH:MM:SS format. (O)
+                              timeZone:
+                                type: string
+                                example: "ET"
+                                minLength: 0
+                                maxLength: 30
+                                description: Event timezone. (O)
+                              gmtOffset:
+                                type: string
+                                example: "GMT-08:00"
+                                minLength: 0
+                                maxLength: 10
+                                description: Event date and time offset to GMT. Present only for US domestic events. (O)
+                              primaryEventId:
+                                type: integer
+                                example: 220
+                                description: Event ID. (M)
+                              primaryEventDescription:
+                                type: string
+                                example: "PROCESSED"
+                                minLength: 1
+                                maxLength: 100
+                                description: Event description. (O)
+                              secondaryEventId:
+                                type: integer
+                                example: 100
+                                description: Secondary event ID. (O)
+                              secondaryEventDescription:
+                                type: string
+                                example: "PROCESSED in FACILITY"
+                                minLength: 0
+                                maxLength: 100
+                                description: Secondary event description. (O)
+                        package:
+                          type: object
+                          description: Package detail. (M)
+                          properties:
+                            dhlPackageId:
+                              type: string
+                              example: "3387191106122423"
+                              minLength: 1
+                              maxLength: 30
+                              description: DHL-generated package ID. (O)
+                            packageId:
+                              type: string
+                              example: "GM60511234500000001"
+                              minLength: 1
+                              maxLength: 30
+                              description: Customer-provided package ID. (O)
+                            manifestId:
+                              type: string
+                              example: "531818890913173105551"
+                              minLength: 1
+                              maxLength: 30
+                              description: Number assigned to the Consignment/BOL during Manifesting. (O)
+                            trackingId:
+                              type: string
+                              example: "420071149361269903500011492028"
+                              minLength: 1
+                              maxLength: 30
+                              description: Last-mile carrier package ID. (O)
+                            deliveryConfirmationNumber:
+                              type: string
+                              example: "9361269903500011492028"
+                              minLength: 1
+                              maxLength: 50
+                              description: USPS tracking number. (O)
+                            overlabeledDspNumber:
+                              type: string
+                              example: "9261269903500013618305"
+                              minLength: 1
+                              maxLength: 60
+                              description: Original USPS tracking number for overlabeled shipments. (O)
+                            intelligentMailBarcode:
+                              type: string
+                              example: "0031043534391627906195625053434"
+                              minLength: 1
+                              maxLength: 60
+                              description: USPS IMb number for domestic flats shipments. (O)
+                            overlabeledIntelligentMailBarcode:
+                              type: string
+                              example: "0031043534391640211895625057522"
+                              minLength: 1
+                              maxLength: 60
+                              description: Original USPS IMb number for overlabeled shipments. (O)
+                            productClass:
+                              type: string
+                              example: "Domestic"
+                              minLength: 1
+                              maxLength: 50
+                              description: DHL eCommerce product class assigned to the package. (O)
+                            orderedProductId:
+                              type: string
+                              example: "EXP"
+                              minLength: 3
+                              maxLength: 3
+                              description: DHL eCommerce original ordered product name assigned to the item. (O)
+                            billedProductId:
+                              type: string
+                              example: "EXP"
+                              minLength: 3
+                              maxLength: 3
+                              description: DHL eCommerce product ID assigned to the package. (O)
+                            productName:
+                              type: string
+                              example: "DHL SM Parcel Plus Expedited Max"
+                              minLength: 1
+                              maxLength: 500
+                              description: DHL eCommerce product name assigned to the package. (O)
+                            signatureConfirmationFlag:
+                              type: boolean
+                              example: true
+                              description: Does the package have signature confirmation? (O)
+                            expectedDelivery:
+                              type: string
+                              example: "2019-12-25"
+                              minLength: 1
+                              maxLength: 10
+                              description: Expected delivery date. (O)
+                            weight:
+                              type: object
+                              description: Weight of the package. (O)
+                              properties:
+                                value:
+                                  type: number
+                                  format: float
+                                  example: 3.2
+                                  minimum: 1
+                                  maximum: 9999.99
+                                  description: Package weight. (M)
+                                unitOfMeasure:
+                                  type: string
+                                  example: "lb"
+                                  minLength: 1
+                                  maxLength: 3
+                                  description: Package weight unit. (M)
+                            intelligentMailBarcodeFlag:
+                              type: boolean
+                              example: true
+                              description: Whether IMB was applied. (O)
+                            declaredValue:
+                              type: integer
+                              example: 23
+                              minLength: 1
+                              maxLength: 50
+                              description: Declared value of the item. (O)
+                            declaredValueCurrency:
+                              type: string
+                              example: "USD"
+                              minLength: 3
+                              maxLength: 3
+                              description: Declared value currency. (O)
+                            batchReference:
+                              type: string
+                              example: "BAT"
+                              minLength: 1
+                              maxLength: 80
+                              description: Batch reference of the Package. (O)
+                            deliveryConfirmationFlag:
+                              type: boolean
+                              example: true
+                              description: Does the Package have delivery confirmation? (O)
+                            customerReference:
+                              type: string
+                              example: "TEST"
+                              minLength: 1
+                              maxLength: 50
+                              description: Customer provided reference for the package. (O)
+                            contentCategory:
+                              type: string
+                              example: "01"
+                              minLength: 1
+                              maxLength: 50
+                              description: Mail content category assigned to the item. (O)        
+        '401':
+          description: "No credentials provided"
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  type:
+                    type: string
+                    example: "https://api-sandbox.dhlecs.com/docs/errors/401.0000008"
+                  title:
+                    type: string
+                    example: "No credentials provided"
+        '404':
+          description: "Undefined resource"
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  type:
+                    type: string
+                    example: "https://api-sandbox.dhlecs.com/docs/errors/404.0000001"
+                  title:
+                    type: string
+                    example: "Undefined resource"
+        '500':
+          description: "Internal gateway server error"
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  type:
+                    type: string
+                    example: "https://api-sandbox.dhlecs.com/docs/errors/500.0000002"
+                  title:
+                    type: string
+                    example: "Internal gateway server error"
+
+components:
+  securitySchemes:
+    OAuth2:
+      type: oauth2
+      description: This API uses OAuth 2 with the client-credentials grant flow
+      flows:
+        clientCredentials:
+          tokenUrl: https://api-sandbox.dhlecs.com/auth/v4/accesstoken
+          scopes: {}
+
+security:
+  - OAuth2: []
