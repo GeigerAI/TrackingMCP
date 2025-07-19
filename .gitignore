@@ -78,3 +78,10 @@ Thumbs.db
 *.tmp
 temp/
 tmp/
+
+# Project-specific exclusions
+Example/
+PRPs/
+CLAUDE.md
+INITIAL_EXAMPLE.md
+INITIAL.md
