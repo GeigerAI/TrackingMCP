@@ -144,6 +144,12 @@ Start the MCP server for use with AI agents:
 python -m src
 ```
 
+The MCP server supports multiple AI platforms:
+- **Claude Desktop**: Native MCP support via configuration
+- **Microsoft Copilot Studio**: Via custom connector (see integration guide below)
+- **GitHub Copilot**: Via MCP extension
+- **Any MCP-compatible client**: Using the standard MCP protocol
+
 Configure with Claude Desktop by adding to your MCP configuration:
 
 ```json
@@ -157,6 +163,137 @@ Configure with Claude Desktop by adding to your MCP configuration:
   }
 }
 ```
+
+### Microsoft Copilot Studio Integration
+
+This MCP server can be integrated with Microsoft Copilot Studio to enable package tracking capabilities in your Copilot agents.
+
+#### Prerequisites
+
+- Microsoft Copilot Studio account with preview features enabled
+- Azure subscription (for deployment)
+- Power Apps environment with "Get new features early" enabled
+- Basic knowledge of custom connectors
+
+#### Deployment Options
+
+##### Option 1: Local Development with Public URL
+
+1. **Start the MCP server locally**:
+   ```bash
+   python -m src
+   ```
+
+2. **Expose your local server** using a tunneling service:
+   - Using ngrok: `ngrok http 8000`
+   - Using VS Code: Use the "Ports" tab to forward port 8000 publicly
+   - Note the public URL (e.g., `https://abc123.ngrok.io`)
+
+##### Option 2: Deploy to Azure
+
+1. **Prepare your MCP server for Azure deployment**:
+   - Create a `requirements.txt` with all dependencies
+   - Add an `app.py` or similar entry point for Azure App Service
+   - Configure environment variables for API credentials
+
+2. **Deploy to Azure App Service**:
+   ```bash
+   # Using Azure CLI
+   az webapp up --name tracking-mcp-server --resource-group your-rg --runtime "PYTHON:3.11"
+   ```
+
+3. **Configure environment variables** in Azure Portal:
+   - Navigate to your App Service
+   - Go to Configuration → Application settings
+   - Add all required API keys and settings
+
+#### Creating the Custom Connector
+
+1. **Navigate to Power Apps** (make.powerapps.com)
+
+2. **Create a new custom connector**:
+   - Go to Data → Custom Connectors → New custom connector
+   - Choose "Create from blank"
+
+3. **Configure the connector**:
+   - **General Information**:
+     - Host: Your server URL (without https://)
+     - Base URL: `/`
+     - Scheme: HTTPS
+   
+   - **Security**:
+     - Authentication type: No authentication (or configure as needed)
+   
+   - **Definition**:
+     - Add action: "InvokeMCP"
+     - Request:
+       - Verb: POST
+       - URL: `/mcp`
+     - Add OpenAPI extension:
+       ```yaml
+       x-ms-agentic-protocol: mcp-streamable-1.0
+       ```
+
+4. **Import the OpenAPI specification**:
+   ```yaml
+   swagger: '2.0'
+   info:
+     title: Package Tracking MCP
+     description: MCP server for package tracking via FedEx, UPS, DHL, and OnTrac
+     version: 1.0.0
+   host: your-server.azurewebsites.net
+   basePath: /
+   schemes:
+     - https
+   paths:
+     /mcp:
+       post:
+         summary: Package Tracking MCP Server
+         x-ms-agentic-protocol: mcp-streamable-1.0
+         operationId: InvokeMCP
+         responses:
+           '200':
+             description: Success
+   ```
+
+5. **Test and create the connector**
+
+#### Adding to Copilot Studio
+
+1. **Open your Copilot Studio agent**
+
+2. **Navigate to Actions**:
+   - Click "+ Add an action"
+   - Search for your custom connector
+   - Select "Package Tracking MCP"
+
+3. **Configure the action**:
+   - The MCP tools will be automatically discovered
+   - Available tools:
+     - `track_fedex_package`
+     - `track_ups_package`
+     - `track_dhl_package`
+     - `track_ontrac_package`
+     - And validation tools for each carrier
+
+4. **Test in Copilot Studio**:
+   - Use the test pane
+   - Try: "Track FedEx package 123456789012"
+   - The agent should use the MCP server to fetch tracking information
+
+#### Troubleshooting
+
+- **"MCP server not responding"**: Ensure your server is publicly accessible
+- **"Authentication failed"**: Check API credentials in environment variables
+- **"Tools not appearing"**: Verify the OpenAPI spec includes `x-ms-agentic-protocol`
+- **Preview features**: Ensure your environment has preview features enabled
+
+#### Security Considerations
+
+- Use Azure Key Vault for storing API credentials
+- Implement proper authentication between Copilot Studio and your MCP server
+- Consider IP restrictions or API Management for production deployments
+- Monitor usage to prevent API rate limit issues
 
 ### As HTTP Server (Alternative)
 
