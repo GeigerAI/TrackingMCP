@@ -16,6 +16,7 @@ class TrackingCarrier(str, Enum):
     FEDEX = "fedex"
     UPS = "ups"
     DHL = "dhl"
+    ONTRAC = "ontrac"
 
 
 class TrackingStatus(str, Enum):
@@ -26,6 +27,21 @@ class TrackingStatus(str, Enum):
     EXCEPTION = "exception"
     PENDING = "pending"
     NOT_FOUND = "not_found"
+    LABEL_CREATED = "label_created"
+    UNKNOWN = "unknown"
+    ERROR = "error"
+
+
+class PackageLocation(BaseModel):
+    """
+    Location information for tracking events.
+    
+    Represents a geographic location in the package's journey.
+    """
+    city: Optional[str] = Field(None, description="City name")
+    state: Optional[str] = Field(None, description="State or province")
+    country: Optional[str] = Field(None, description="Country code")
+    postal_code: Optional[str] = Field(None, description="ZIP or postal code")
 
 
 class TrackingEvent(BaseModel):
@@ -35,9 +51,10 @@ class TrackingEvent(BaseModel):
     Represents a single update in the package's journey.
     """
     timestamp: datetime = Field(..., description="When the event occurred")
-    status: str = Field(..., description="Status code or description")
-    location: Optional[str] = Field(None, description="Location where event occurred")
+    status: Optional[str] = Field(None, description="Status code or description")
+    location: Optional[PackageLocation] = Field(None, description="Location where event occurred")
     description: str = Field(..., description="Human-readable event description")
+    status_code: Optional[str] = Field(None, description="Carrier-specific status code")
 
 
 class TrackingResult(BaseModel):
@@ -53,9 +70,21 @@ class TrackingResult(BaseModel):
         None,
         description="Estimated delivery date and time"
     )
+    delivered_at: Optional[datetime] = Field(
+        None,
+        description="Actual delivery date and time"
+    )
     events: List[TrackingEvent] = Field(
         default_factory=list,
         description="Chronological list of tracking events"
+    )
+    origin: Optional[PackageLocation] = Field(
+        None,
+        description="Origin location"
+    )
+    destination: Optional[PackageLocation] = Field(
+        None,
+        description="Destination location"
     )
     delivery_address: Optional[str] = Field(
         None,
@@ -69,9 +98,21 @@ class TrackingResult(BaseModel):
         None,
         description="Package weight if available"
     )
+    dimensions: Optional[str] = Field(
+        None,
+        description="Package dimensions if available"
+    )
+    reference_numbers: List[str] = Field(
+        default_factory=list,
+        description="Reference numbers associated with the package"
+    )
     error_message: Optional[str] = Field(
         None,
         description="Error message if tracking failed"
+    )
+    raw_data: Optional[dict] = Field(
+        None,
+        description="Raw API response data"
     )
 
 

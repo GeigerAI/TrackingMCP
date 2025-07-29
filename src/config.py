@@ -66,6 +66,20 @@ class Settings(BaseSettings):
         description="Use DHL sandbox environment"
     )
 
+    # OnTrac Configuration
+    ontrac_api_key: str = Field(
+        default="",
+        description="OnTrac API key"
+    )
+    ontrac_account_number: str = Field(
+        default="",
+        description="OnTrac account number"
+    )
+    ontrac_sandbox: bool = Field(
+        default=True,
+        description="Use OnTrac sandbox environment"
+    )
+
     # MCP Configuration
     mcp_transport: str = Field(
         default="stdio",
@@ -124,6 +138,18 @@ class Settings(BaseSettings):
             return "https://api-sandbox.dhlecs.com"
         return "https://api.dhlecs.com"
 
+    @property
+    def ontrac_base_url(self) -> str:
+        """
+        Get OnTrac API base URL based on sandbox setting.
+
+        Returns:
+            str: OnTrac API base URL
+        """
+        if self.ontrac_sandbox:
+            return "https://www.shipontrac.net/OnTracTestWebServices/OnTracServices.svc"
+        return "https://www.shipontrac.net/OnTracWebServices/OnTracServices.svc"
+
     def validate_api_credentials(self) -> None:
         """
         Validate that required API credentials are present.
@@ -139,6 +165,9 @@ class Settings(BaseSettings):
 
         if not self.dhl_client_id or not self.dhl_client_secret:
             raise ValueError("DHL API credentials are required")
+
+        if not self.ontrac_api_key:
+            raise ValueError("OnTrac API key is required")
 
     class Config:
         env_file = ".env"

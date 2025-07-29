@@ -1,6 +1,6 @@
 # Package Tracking MCP Server
 
-A Model Context Protocol (MCP) server that enables AI agents to track packages using FedEx, UPS, and DHL APIs. This server provides standardized tracking tools that can be consumed by any MCP-compatible AI agent or application.
+A Model Context Protocol (MCP) server that enables AI agents to track packages using FedEx, UPS, DHL, and OnTrac APIs. This server provides standardized tracking tools that can be consumed by any MCP-compatible AI agent or application.
 
 ## Quick Start
 
@@ -27,6 +27,7 @@ python -m src
 - 🚚 **FedEx Package Tracking**: Real-time tracking with OAuth2 authentication and auto-refresh
 - 📦 **UPS Package Tracking**: Complete tracking support with OAuth2 authorization flow
 - 🟡 **DHL Package Tracking**: DHL eCommerce tracking with OAuth2 client credentials flow
+- 🟠 **OnTrac Package Tracking**: Regional carrier tracking with API key authentication
 - 🤖 **MCP Protocol**: Standard interface for AI agents via Model Context Protocol
 - ⚡ **Batch Processing**: Track up to 30 FedEx packages, 10 UPS packages, or 10 DHL packages at once
 - 🔄 **Auto-Retry**: Automatic retry logic for rate limits and network failures
@@ -84,6 +85,11 @@ DHL_CLIENT_ID=your_dhl_client_id
 DHL_CLIENT_SECRET=your_dhl_client_secret
 DHL_SANDBOX=true
 
+# OnTrac Configuration
+ONTRAC_API_KEY=your_ontrac_api_key
+ONTRAC_ACCOUNT_NUMBER=your_ontrac_account_number
+ONTRAC_SANDBOX=false
+
 # MCP Configuration
 MCP_TRANSPORT=stdio
 LOG_LEVEL=INFO
@@ -116,6 +122,17 @@ TOKEN_REFRESH_BUFFER=60
 2. Create an account and new application for DHL eCommerce
 3. Obtain your Client ID and Client Secret
 4. Uses OAuth2 client credentials flow
+
+#### OnTrac API Setup
+1. OnTrac requires an active account and API password
+2. To get API access:
+   - Contact ont@ontrac.com to request an API password
+   - Include your OnTrac account number in the email request
+   - Wait for OnTrac to issue your API password
+3. For testing purposes:
+   - The API documentation shows account `37` with password `testpass`
+   - These are example credentials and may not work
+4. Uses query parameter authentication (`pw` parameter)
 
 ## Usage
 
@@ -165,10 +182,14 @@ python main.py --ups 1Z12345E0123456789
 # Track a DHL package
 python main.py --dhl GM60511234500000001
 
+# Track an OnTrac package
+python main.py --ontrac C10000012345678
+
 # Track multiple packages
 python main.py --fedex 123456789012 987654321098
 python main.py --ups 1Z12345E0123456789 1Z12345E9876543210
 python main.py --dhl GM60511234500000001 GM60511234500000002
+python main.py --ontrac C10000012345678 D10000012345678
 ```
 
 #### Validation and Testing
@@ -178,6 +199,7 @@ python main.py --dhl GM60511234500000001 GM60511234500000002
 python main.py --validate --fedex 123456789012
 python main.py --validate --ups 1Z12345E0123456789
 python main.py --validate --dhl GM60511234500000001
+python main.py --validate --ontrac C10000012345678
 
 # Run test mode with sample tracking numbers
 python main.py --test-mode
@@ -221,6 +243,9 @@ The server exposes the following tools to AI agents:
 - `track_dhl_package(tracking_number: str)` - Track single DHL package
 - `track_multiple_dhl_packages(tracking_numbers: List[str])` - Track multiple DHL packages
 - `validate_dhl_tracking_number(tracking_number: str)` - Validate DHL tracking number format
+- `track_ontrac_package(tracking_number: str)` - Track single OnTrac package
+- `track_multiple_ontrac_packages(tracking_numbers: List[str])` - Track multiple OnTrac packages
+- `validate_ontrac_tracking_number(tracking_number: str)` - Validate OnTrac tracking number format
 
 #### Available MCP Resources
 
@@ -240,18 +265,21 @@ TrackingRateMCP/
 │   │   ├── __init__.py               # Auth package init
 │   │   ├── fedex_auth.py             # FedEx OAuth token management
 │   │   ├── ups_auth.py               # UPS OAuth token management
-│   │   └── dhl_auth.py               # DHL OAuth token management
+│   │   ├── dhl_auth.py               # DHL OAuth token management
+│   │   └── ontrac_auth.py            # OnTrac API key authentication
 │   ├── tracking/
 │   │   ├── __init__.py               # Tracking package init
 │   │   ├── fedex_tracker.py          # FedEx tracking implementation
 │   │   ├── ups_tracker.py            # UPS tracking implementation
 │   │   ├── dhl_tracker.py            # DHL tracking implementation
+│   │   ├── ontrac_tracker.py         # OnTrac tracking implementation
 │   │   └── base_tracker.py           # Abstract tracking interface
 │   └── tools/
 │       ├── __init__.py               # Tools package init
 │       ├── fedex_tools.py            # FedEx MCP tools
 │       ├── ups_tools.py              # UPS MCP tools
-│       └── dhl_tools.py              # DHL MCP tools
+│       ├── dhl_tools.py              # DHL MCP tools
+│       └── ontrac_tools.py           # OnTrac MCP tools
 ├── tests/                             # Comprehensive test suite
 ├── venv_linux/                       # Virtual environment
 ├── requirements.txt                   # Python dependencies
@@ -315,13 +343,17 @@ To add support for additional carriers:
 ```python
 class TrackingResult(BaseModel):
     tracking_number: str              # Package tracking number
-    carrier: TrackingCarrier          # Shipping carrier (fedex/ups)
+    carrier: TrackingCarrier          # Shipping carrier (fedex/ups/dhl/ontrac)
     status: TrackingStatus           # Current package status
     estimated_delivery: Optional[datetime]  # Estimated delivery time
+    delivered_at: Optional[datetime]  # Actual delivery time
     events: List[TrackingEvent]      # Tracking history
+    origin: Optional[PackageLocation]  # Origin location
+    destination: Optional[PackageLocation]  # Destination location
     delivery_address: Optional[str]  # Delivery location
     service_type: Optional[str]      # Shipping service type
     weight: Optional[str]            # Package weight
+    reference_numbers: List[str]     # Reference numbers
     error_message: Optional[str]     # Error details if tracking failed
 ```
 
@@ -333,6 +365,9 @@ class TrackingResult(BaseModel):
 - `exception` - Delivery exception occurred
 - `pending` - Package processing pending
 - `not_found` - Tracking number not found
+- `label_created` - Shipping label created
+- `unknown` - Status unknown
+- `error` - Tracking error occurred
 
 ## Troubleshooting
 
@@ -342,6 +377,10 @@ class TrackingResult(BaseModel):
    - Verify API credentials in `.env` file
    - Check if using correct sandbox/production endpoints
    - Ensure OAuth flow completed for UPS
+   - **OnTrac**: "Invalid Username or Password" error means:
+     - You need to contact ont@ontrac.com for API access
+     - Include your account number in the request
+     - The test credentials in documentation may not work
 
 2. **Tracking Failures**:
    - Validate tracking number format
@@ -379,6 +418,11 @@ Check logs for specific error details and API response information.
 - Maximum 10 tracking numbers per request
 - OAuth tokens expire based on API settings
 - Supports both batch and individual tracking
+
+### OnTrac API
+- No batch tracking support (concurrent requests used)
+- API key authentication (no token expiration)
+- Regional carrier focusing on western US states
 
 ### Best Practices
 - Use batch tracking when possible

@@ -18,11 +18,13 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from src.auth.fedex_auth import FedExAuth
 from src.auth.ups_auth import UPSAuth
 from src.auth.dhl_auth import DHLAuth
+from src.auth.ontrac_auth import OnTracAuth
 from src.config import settings
 from src.models import TrackingCarrier, TrackingResult
 from src.tracking.fedex_tracker import FedExTracker
 from src.tracking.ups_tracker import UPSTracker
 from src.tracking.dhl_tracker import DHLTracker
+from src.tracking.ontrac_tracker import OnTracTracker
 
 logger = logging.getLogger(__name__)
 
@@ -40,6 +42,7 @@ class MCPServer:
         self.resources = {}
         self.ups_auth = UPSAuth()
         self.dhl_auth = DHLAuth()
+        self.ontrac_auth = OnTracAuth()
         self._setup_tools()
         self._setup_resources()
     
@@ -186,6 +189,53 @@ class MCPServer:
                 "required": ["tracking_number"]
             }
         }
+        
+        # OnTrac tools
+        self.tools["track_ontrac_package"] = {
+            "name": "track_ontrac_package",
+            "description": "Track an OnTrac package by tracking number",
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    "tracking_number": {
+                        "type": "string",
+                        "description": "OnTrac tracking number (e.g., C10000012345678)"
+                    }
+                },
+                "required": ["tracking_number"]
+            }
+        }
+        
+        self.tools["track_multiple_ontrac_packages"] = {
+            "name": "track_multiple_ontrac_packages",
+            "description": "Track multiple OnTrac packages",
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    "tracking_numbers": {
+                        "type": "array",
+                        "items": {"type": "string"},
+                        "description": "List of OnTrac tracking numbers"
+                    }
+                },
+                "required": ["tracking_numbers"]
+            }
+        }
+        
+        self.tools["validate_ontrac_tracking_number"] = {
+            "name": "validate_ontrac_tracking_number",
+            "description": "Validate OnTrac tracking number format",
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    "tracking_number": {
+                        "type": "string",
+                        "description": "Tracking number to validate"
+                    }
+                },
+                "required": ["tracking_number"]
+            }
+        }
 
     
     def _setup_resources(self):
@@ -216,6 +266,13 @@ class MCPServer:
             "uri": "tracking://carriers/dhl/capabilities",
             "name": "DHL Capabilities",
             "description": "DHL carrier capabilities and limits",
+            "mimeType": "application/json"
+        }
+        
+        self.resources["tracking://carriers/ontrac/capabilities"] = {
+            "uri": "tracking://carriers/ontrac/capabilities",
+            "name": "OnTrac Capabilities",
+            "description": "OnTrac carrier capabilities and limits",
             "mimeType": "application/json"
         }
     
@@ -300,6 +357,12 @@ class MCPServer:
                 result = await self._track_multiple_dhl_packages(arguments["tracking_numbers"])
             elif tool_name == "validate_dhl_tracking_number":
                 result = await self._validate_dhl_tracking_number(arguments["tracking_number"])
+            elif tool_name == "track_ontrac_package":
+                result = await self._track_ontrac_package(arguments["tracking_number"])
+            elif tool_name == "track_multiple_ontrac_packages":
+                result = await self._track_multiple_ontrac_packages(arguments["tracking_numbers"])
+            elif tool_name == "validate_ontrac_tracking_number":
+                result = await self._validate_ontrac_tracking_number(arguments["tracking_number"])
             else:
                 return self._error_response(msg_id, -32602, f"Tool not implemented: {tool_name}")
             
@@ -343,8 +406,8 @@ class MCPServer:
                 content = {
                     "name": "Package Tracking MCP Server",
                     "version": "0.1.0",
-                    "description": "Provides package tracking for FedEx, UPS, and DHL shipments",
-                    "supported_carriers": ["fedex", "ups", "dhl"],
+                    "description": "Provides package tracking for FedEx, UPS, DHL, and OnTrac shipments",
+                    "supported_carriers": ["fedex", "ups", "dhl", "ontrac"],
                     "features": [
                         "Real-time package tracking",
                         "Multiple package batch tracking", 
@@ -355,7 +418,8 @@ class MCPServer:
                     "configuration": {
                         "fedex_sandbox": settings.fedex_sandbox,
                         "ups_sandbox": settings.ups_sandbox,
-                        "dhl_sandbox": settings.dhl_sandbox
+                        "dhl_sandbox": settings.dhl_sandbox,
+                        "ontrac_sandbox": settings.ontrac_sandbox
                     }
                 }
             elif uri == "tracking://carriers/fedex/capabilities":
@@ -407,6 +471,23 @@ class MCPServer:
                         "Event history",
                         "Delivery estimates",
                         "OAuth2 authentication"
+                    ]
+                }
+            elif uri == "tracking://carriers/ontrac/capabilities":
+                content = {
+                    "carrier": "OnTrac",
+                    "max_batch_size": 0,  # OnTrac doesn't support batch tracking
+                    "tracking_number_formats": [
+                        "C + 14 digits (e.g., C10000012345678)",
+                        "D + 14 digits (e.g., D10000012345678)"
+                    ],
+                    "features": [
+                        "Real-time tracking",
+                        "Event history",
+                        "Delivery estimates",
+                        "API key authentication",
+                        "Origin/destination info",
+                        "Reference numbers"
                     ]
                 }
             else:
@@ -493,6 +574,23 @@ class MCPServer:
         """Validate DHL tracking number (doesn't require authentication)."""
         # Reason: Validation doesn't need OAuth, just format checking
         tracker = DHLTracker()
+        return tracker.validate_tracking_number(tracking_number)
+    
+    async def _track_ontrac_package(self, tracking_number: str) -> Dict[str, Any]:
+        """Track an OnTrac package."""
+        tracker = OnTracTracker()
+        result = await tracker.track_package(tracking_number)
+        return result.model_dump()
+    
+    async def _track_multiple_ontrac_packages(self, tracking_numbers: List[str]) -> List[Dict[str, Any]]:
+        """Track multiple OnTrac packages."""
+        tracker = OnTracTracker()
+        results = await tracker.track_multiple_packages(tracking_numbers)
+        return [result.model_dump() for result in results]
+    
+    async def _validate_ontrac_tracking_number(self, tracking_number: str) -> bool:
+        """Validate OnTrac tracking number."""
+        tracker = OnTracTracker()
         return tracker.validate_tracking_number(tracking_number)
 
 
